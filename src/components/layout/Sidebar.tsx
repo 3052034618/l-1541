@@ -1,4 +1,4 @@
-import { LayoutDashboard, Truck, Calendar, FileCheck, BarChart3, Settings, LogOut, Bell } from 'lucide-react';
+import { LayoutDashboard, Truck, Calendar, FileCheck, BarChart3, Settings, LogOut, Bell, FileText } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useApprovalStore } from '@/store/useApprovalStore';
@@ -10,6 +10,7 @@ const menuItems = [
   { path: '/appointment', label: '预约管理', icon: Calendar },
   { path: '/approval', label: '审批中心', icon: FileCheck },
   { path: '/statistics', label: '统计报表', icon: BarChart3 },
+  { path: '/logs', label: '操作日志', icon: FileText },
 ];
 
 export function Sidebar() {

@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { Calendar, Plus, Check, X, Clock, User, Truck } from 'lucide-react';
-import { mockAppointments, mockVehicles } from '@/data/mockData';
-import type { Appointment, AppointmentStatus } from '@/types';
+import { useState, useEffect } from 'react';
+import { Calendar, Plus, Check, X, Clock, User, Truck, MapPin } from 'lucide-react';
+import { useAppointmentStore } from '@/store/useAppointmentStore';
+import { useLogStore } from '@/store/useLogStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { mockVehicles } from '@/data/mockData';
+import type { AppointmentStatus } from '@/types';
 import { cn } from '@/lib/utils';
 
 const statusOptions: { value: AppointmentStatus | 'all'; label: string }[] = [
@@ -27,29 +30,86 @@ const statusText: Record<string, string> = {
 };
 
 export default function Appointment() {
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const { appointments, addAppointment, updateAppointmentStatus, findNearestVehicle } = useAppointmentStore();
+  const { addLog } = useLogStore();
+  const { currentUser } = useAuthStore();
   const [filter, setFilter] = useState<AppointmentStatus | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    donorName: '',
+    bloodType: 'A',
+    time: '',
+  });
+  const [nearestVehicle, setNearestVehicle] = useState<ReturnType<typeof findNearestVehicle>>(null);
+
+  useEffect(() => {
+    if (showAddModal) {
+      const vehicle = findNearestVehicle();
+      setNearestVehicle(vehicle);
+    }
+  }, [showAddModal, findNearestVehicle]);
 
   const filteredAppointments = appointments.filter((a) => {
     return filter === 'all' || a.status === filter;
   });
 
-  const handleConfirm = (id: string) => {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'confirmed' } : a))
-    );
-  };
-
-  const handleCancel = (id: string) => {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'cancelled' } : a))
-    );
-  };
-
   const getVehicleName = (vehicleId: string) => {
     const vehicle = mockVehicles.find((v) => v.id === vehicleId);
     return vehicle?.number || '未知';
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleConfirm = (id: string) => {
+    updateAppointmentStatus(id, 'confirmed');
+    if (currentUser) {
+      addLog(currentUser.id, currentUser.name, `确认了预约 ${id}`);
+    }
+  };
+
+  const handleCancel = (id: string) => {
+    updateAppointmentStatus(id, 'cancelled');
+    if (currentUser) {
+      addLog(currentUser.id, currentUser.name, `取消了预约 ${id}`);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!formData.donorName.trim()) {
+      alert('请输入献血者姓名');
+      return;
+    }
+    if (!formData.time) {
+      alert('请选择预约时间');
+      return;
+    }
+    if (!nearestVehicle) {
+      alert('暂无可用车辆，请稍后再试');
+      return;
+    }
+
+    const newAppointment = addAppointment({
+      donorId: `donor_${Date.now()}`,
+      donorName: formData.donorName.trim(),
+      vehicleId: nearestVehicle.id,
+      time: new Date(formData.time).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      bloodType: formData.bloodType,
+    });
+
+    if (currentUser) {
+      addLog(currentUser.id, currentUser.name, `创建了预约 ${newAppointment.id}，分配至 ${nearestVehicle.number}`);
+    }
+
+    setFormData({ donorName: '', bloodType: 'A', time: '' });
+    setShowAddModal(false);
   };
 
   return (
@@ -201,13 +261,19 @@ export default function Appointment() {
                 <label className="block text-sm text-slate-400 mb-2">献血者姓名</label>
                 <input
                   type="text"
+                  value={formData.donorName}
+                  onChange={(e) => handleInputChange('donorName', e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
                   placeholder="请输入姓名"
                 />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-2">血型</label>
-                <select className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-green-500">
+                <select
+                  value={formData.bloodType}
+                  onChange={(e) => handleInputChange('bloodType', e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
+                >
                   <option value="A">A型</option>
                   <option value="B">B型</option>
                   <option value="O">O型</option>
@@ -218,19 +284,45 @@ export default function Appointment() {
                 <label className="block text-sm text-slate-400 mb-2">预约时间</label>
                 <input
                   type="datetime-local"
+                  value={formData.time}
+                  onChange={(e) => handleInputChange('time', e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
                 />
               </div>
+              {nearestVehicle && (
+                <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-400 text-sm mb-2">
+                    <MapPin size={14} />
+                    <span className="font-medium">已自动分配最近车辆</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck size={16} className="text-white" />
+                      <span className="text-white">{nearestVehicle.number}</span>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      护士: {nearestVehicle.nurseName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                    <User size={12} />
+                    <span>当前预约: {nearestVehicle.reservationCount} 人</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setFormData({ donorName: '', bloodType: 'A', time: '' });
+                }}
                 className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
               >
                 取消
               </button>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={handleSubmit}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-colors"
               >
                 确认预约

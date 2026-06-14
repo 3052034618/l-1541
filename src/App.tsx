@@ -5,6 +5,7 @@ import Vehicles from '@/pages/Vehicles';
 import Appointment from '@/pages/Appointment';
 import Approval from '@/pages/Approval';
 import Statistics from '@/pages/Statistics';
+import Logs from '@/pages/Logs';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="appointment" element={<Appointment />} />
           <Route path="approval" element={<Approval />} />
           <Route path="statistics" element={<Statistics />} />
+          <Route path="logs" element={<Logs />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
