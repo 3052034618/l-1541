@@ -24,9 +24,9 @@ const roleText: Record<UserRole, string> = {
 };
 
 function getUserRole(userId: string): UserRole | null {
-  if (userId.startsWith('u001')) return 'director';
-  if (userId.startsWith('u002')) return 'nurse';
-  if (userId.startsWith('u003') || userId.startsWith('donor')) return 'donor';
+  if (userId === 'u001') return 'director';
+  if (userId === 'u002') return 'nurse';
+  if (userId === 'u003' || userId.startsWith('donor')) return 'donor';
   return null;
 }
 
@@ -84,7 +84,7 @@ export default function Logs() {
           return (
             <div
               key={index}
-              className="bg-slate-900/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-5"
+              className="bg-slate-900/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-5 hover:border-slate-600 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div
@@ -165,6 +165,11 @@ export default function Logs() {
                       {role && (
                         <span className={cn('px-2 py-1 rounded-full text-xs font-medium', roleColors[role])}>
                           {roleText[role]}
+                        </span>
+                      )}
+                      {!role && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-slate-500/20 text-slate-400">
+                          未知
                         </span>
                       )}
                     </td>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BloodVehicle, DispatchRoute, CollectionRecord } from '@/types';
 import { mockVehicles, mockDispatchRoutes } from '@/data/mockData';
+import { getStoredData, setStoredData } from '@/lib/utils';
 
 interface VehicleState {
   vehicles: BloodVehicle[];
@@ -13,10 +14,20 @@ interface VehicleState {
   addCollectionRecord: (vehicleId: string, record: CollectionRecord) => void;
   getSelectedVehicle: () => BloodVehicle | undefined;
   getActiveRoutes: () => DispatchRoute[];
+  incrementReservationCount: (vehicleId: string) => void;
+  decrementReservationCount: (vehicleId: string) => void;
 }
 
+const getInitialVehicles = (): BloodVehicle[] => {
+  const stored = getStoredData<BloodVehicle[]>('vehicles', null);
+  if (stored && stored.length > 0) {
+    return stored;
+  }
+  return mockVehicles;
+};
+
 export const useVehicleStore = create<VehicleState>((set, get) => ({
-  vehicles: mockVehicles,
+  vehicles: getInitialVehicles(),
   selectedVehicleId: null,
   routes: mockDispatchRoutes,
 
@@ -29,16 +40,18 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
   },
 
   updateVehiclePosition: (id: string, position: { x: number; y: number; z: number }) => {
-    set(state => ({
-      vehicles: state.vehicles.map(v =>
+    set(state => {
+      const newVehicles = state.vehicles.map(v =>
         v.id === id ? { ...v, position } : v
-      ),
-    }));
+      );
+      setStoredData('vehicles', newVehicles);
+      return { vehicles: newVehicles };
+    });
   },
 
   addCollectionRecord: (vehicleId: string, record: CollectionRecord) => {
-    set(state => ({
-      vehicles: state.vehicles.map(v =>
+    set(state => {
+      const newVehicles = state.vehicles.map(v =>
         v.id === vehicleId
           ? {
               ...v,
@@ -49,8 +62,10 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
               },
             }
           : v
-      ),
-    }));
+      );
+      setStoredData('vehicles', newVehicles);
+      return { vehicles: newVehicles };
+    });
   },
 
   getSelectedVehicle: () => {
@@ -60,5 +75,29 @@ export const useVehicleStore = create<VehicleState>((set, get) => ({
 
   getActiveRoutes: () => {
     return get().routes.filter(r => r.status === 'active');
+  },
+
+  incrementReservationCount: (vehicleId: string) => {
+    set(state => {
+      const newVehicles = state.vehicles.map(v =>
+        v.id === vehicleId
+          ? { ...v, reservationCount: v.reservationCount + 1 }
+          : v
+      );
+      setStoredData('vehicles', newVehicles);
+      return { vehicles: newVehicles };
+    });
+  },
+
+  decrementReservationCount: (vehicleId: string) => {
+    set(state => {
+      const newVehicles = state.vehicles.map(v =>
+        v.id === vehicleId
+          ? { ...v, reservationCount: Math.max(0, v.reservationCount - 1) }
+          : v
+      );
+      setStoredData('vehicles', newVehicles);
+      return { vehicles: newVehicles };
+    });
   },
 }));

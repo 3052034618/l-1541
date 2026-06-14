@@ -14,7 +14,7 @@ import {
   Line,
   Legend,
 } from 'recharts';
-import { BarChart3, Download, Calendar, TrendingUp, Droplets, AlertTriangle } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, Droplets, AlertTriangle, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '@/store/useVehicleStore';
 import { useApprovalStore } from '@/store/useApprovalStore';
@@ -32,6 +32,44 @@ const dateRangeLabels: Record<DateRange, string> = {
   month: '本月',
 };
 
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function generateStableData(seedBase: string, days: number, basePerDay: number) {
+  const data = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = days === 1 
+      ? `${date.getHours()}:00`
+      : `${date.getMonth() + 1}/${date.getDate()}`;
+
+    const seed = `${seedBase}_${date.getFullYear()}_${date.getMonth()}_${date.getDate()}`;
+    let hash = 0;
+    for (let j = 0; j < seed.length; j++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(j);
+      hash = hash & hash;
+    }
+
+    const randomFactor = 0.7 + seededRandom(Math.abs(hash)) * 0.6;
+    const collection = Math.floor(basePerDay * randomFactor);
+    const storage = Math.floor(collection * (0.88 + seededRandom(Math.abs(hash + 1)) * 0.1));
+
+    data.push({
+      date: dateStr,
+      dateObj: date,
+      采集量: collection,
+      入库量: storage,
+    });
+  }
+  return data;
+}
+
 export default function Statistics() {
   const vehicles = useVehicleStore((state) => state.vehicles);
   const approvals = useApprovalStore((state) => state.approvals);
@@ -39,87 +77,105 @@ export default function Statistics() {
   const { currentUser } = useAuthStore();
   const [dateRange, setDateRange] = useState<DateRange>('today');
 
-  const generateDailyCollectionData = (range: DateRange) => {
-    const today = new Date();
-    const days = range === 'today' ? 1 : range === 'week' ? 7 : 30;
-    const data = [];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = range === 'today' 
-        ? `${date.getHours()}:00`
-        : `${date.getMonth() + 1}/${date.getDate()}`;
-      
-      const baseMultiplier = range === 'today' ? 3 : range === 'week' ? 1 : 0.3;
-      const randomFactor = 0.7 + Math.random() * 0.6;
-      const collection = Math.floor((15 + Math.random() * 25) * baseMultiplier * randomFactor);
-      const storage = Math.floor(collection * (0.9 + Math.random() * 0.08));
-      
-      data.push({
-        date: dateStr,
-        采集量: collection,
-        入库量: storage,
-      });
-    }
-    return data;
-  };
+  const days = dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30;
+  const basePerDay = dateRange === 'today' ? 45 : dateRange === 'week' ? 12 : 5;
 
   const dailyCollectionData = useMemo(() => {
-    return generateDailyCollectionData(dateRange);
-  }, [dateRange]);
-
-  const rangeMultiplier = useMemo(() => {
-    return dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30;
-  }, [dateRange]);
-
-  const vehicleStats = useMemo(() => {
-    return vehicles.map((v) => ({
-      name: v.number,
-      A: Math.floor(v.inventory.A * (0.3 + rangeMultiplier * 0.1)),
-      B: Math.floor(v.inventory.B * (0.3 + rangeMultiplier * 0.1)),
-      O: Math.floor(v.inventory.O * (0.3 + rangeMultiplier * 0.1)),
-      AB: Math.floor(v.inventory.AB * (0.3 + rangeMultiplier * 0.1)),
-      采集量: Math.floor(v.collectionRecords.length * (0.3 + rangeMultiplier * 0.1)),
-    }));
-  }, [vehicles, rangeMultiplier]);
-
-  const bloodTypeDistribution = useMemo(() => {
-    return [
-      { name: 'A型', value: vehicles.reduce((sum, v) => sum + v.inventory.A, 0) * (0.3 + rangeMultiplier * 0.1) },
-      { name: 'B型', value: vehicles.reduce((sum, v) => sum + v.inventory.B, 0) * (0.3 + rangeMultiplier * 0.1) },
-      { name: 'O型', value: vehicles.reduce((sum, v) => sum + v.inventory.O, 0) * (0.3 + rangeMultiplier * 0.1) },
-      { name: 'AB型', value: vehicles.reduce((sum, v) => sum + v.inventory.AB, 0) * (0.3 + rangeMultiplier * 0.1) },
-    ];
-  }, [vehicles, rangeMultiplier]);
+    return generateStableData(`collection_${dateRange}`, days, basePerDay);
+  }, [dateRange, days, basePerDay]);
 
   const totalCollection = useMemo(() => {
     return dailyCollectionData.reduce((sum, d) => sum + d.采集量, 0);
   }, [dailyCollectionData]);
 
+  const totalStorage = useMemo(() => {
+    return dailyCollectionData.reduce((sum, d) => sum + d.入库量, 0);
+  }, [dailyCollectionData]);
+
+  const rangeApprovals = useMemo(() => {
+    const now = new Date();
+    const start = new Date();
+    
+    if (dateRange === 'today') {
+      start.setHours(0, 0, 0, 0);
+    } else if (dateRange === 'week') {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+    } else {
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+    }
+
+    return approvals.filter(a => {
+      const createTime = new Date(a.createTime);
+      return createTime >= start && createTime <= now;
+    });
+  }, [approvals, dateRange]);
+
+  const pendingApprovals = useMemo(() => {
+    return rangeApprovals.filter(a => {
+      const stageOrder = ['initial_screening', 'recheck', 'storage'];
+      const currentStageIdx = stageOrder.indexOf(a.currentStage);
+      return a.stages[currentStageIdx]?.status === 'processing';
+    }).length;
+  }, [rangeApprovals]);
+
+  const passedRate = useMemo(() => {
+    if (rangeApprovals.length === 0) return '0.0';
+    const passed = rangeApprovals.filter(a => 
+      a.stages.every(s => s.status === 'passed' || s.status === 'processing')
+    ).length;
+    return ((passed / rangeApprovals.length) * 100).toFixed(1);
+  }, [rangeApprovals]);
+
+  const vehicleStats = useMemo(() => {
+    const seed = `vehicles_${dateRange}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash = hash & hash;
+    }
+    const multiplier = 0.5 + seededRandom(Math.abs(hash)) * 0.5;
+    
+    return vehicles.map((v, idx) => {
+      const vehicleHash = hash + idx * 1000;
+      const factor = 0.7 + seededRandom(Math.abs(vehicleHash)) * 0.6;
+      return {
+        name: v.number,
+        A: Math.floor(v.inventory.A * multiplier * factor * 0.3),
+        B: Math.floor(v.inventory.B * multiplier * factor * 0.3),
+        O: Math.floor(v.inventory.O * multiplier * factor * 0.3),
+        AB: Math.floor(v.inventory.AB * multiplier * factor * 0.3),
+        采集量: Math.floor(v.collectionRecords.length * multiplier * factor),
+      };
+    });
+  }, [vehicles, dateRange]);
+
+  const bloodTypeDistribution = useMemo(() => {
+    const totalA = vehicleStats.reduce((sum, v) => sum + v.A, 0);
+    const totalB = vehicleStats.reduce((sum, v) => sum + v.B, 0);
+    const totalO = vehicleStats.reduce((sum, v) => sum + v.O, 0);
+    const totalAB = vehicleStats.reduce((sum, v) => sum + v.AB, 0);
+    
+    return [
+      { name: 'A型', value: totalA },
+      { name: 'B型', value: totalB },
+      { name: 'O型', value: totalO },
+      { name: 'AB型', value: totalAB },
+    ];
+  }, [vehicleStats]);
+
   const totalVolume = useMemo(() => {
     return bloodTypeDistribution.reduce((sum, t) => sum + t.value, 0);
   }, [bloodTypeDistribution]);
-
-  const pendingApprovals = useMemo(() => {
-    return approvals.filter(
-      (a) => a.stages.some((s) => s.status === 'processing')
-    ).length;
-  }, [approvals]);
-
-  const passedRate = useMemo(() => {
-    if (approvals.length === 0) return '0';
-    const passed = approvals.filter((a) => 
-      a.stages.every((s) => s.status === 'passed' || s.status === 'processing')
-    ).length;
-    return ((passed / approvals.length) * 100).toFixed(1);
-  }, [approvals]);
 
   const stats = [
     { label: `${dateRangeLabels[dateRange]}采集人次`, value: totalCollection, icon: Droplets, color: 'from-blue-500 to-cyan-500', change: '+12%' },
     { label: '总库存量', value: totalVolume.toFixed(0) + ' 单位', icon: TrendingUp, color: 'from-green-500 to-emerald-500', change: '+5.2%' },
     { label: '待审批', value: pendingApprovals, icon: AlertTriangle, color: 'from-yellow-500 to-orange-500', change: '-3' },
-    { label: '通过率', value: passedRate + '%', icon: BarChart3, color: 'from-purple-500 to-pink-500', change: '+2.1%' },
+    { label: '通过率', value: passedRate + '%', icon: CheckCircle, color: 'from-purple-500 to-pink-500', change: '+2.1%' },
   ];
 
   const handleExportExcel = () => {
@@ -132,6 +188,7 @@ export default function Statistics() {
       [],
       ['统计项', '数值'],
       [`${dateRangeLabels[dateRange]}采集人次`, totalCollection],
+      [`${dateRangeLabels[dateRange]}入库量`, totalStorage],
       ['总库存量', totalVolume.toFixed(0) + ' 单位'],
       ['待审批数', pendingApprovals],
       ['通过率', passedRate + '%'],
@@ -139,23 +196,21 @@ export default function Statistics() {
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, '汇总');
 
-    const vehicleHeaders = ['车辆编号', '状态', 'A型', 'B型', 'O型', 'AB型', '总库存', '采集记录数', '预约人数'];
+    const vehicleHeaders = ['车辆编号', 'A型(单位)', 'B型(单位)', 'O型(单位)', 'AB型(单位)', '总库存(单位)', '采集记录数'];
     const vehicleData = vehicleStats.map((v) => [
       v.name,
-      '正常',
       v.A,
       v.B,
       v.O,
       v.AB,
       v.A + v.B + v.O + v.AB,
       v.采集量,
-      Math.floor(v.采集量 * 0.3),
     ]);
     const vehicleSheetData = [vehicleHeaders, ...vehicleData];
     const vehicleSheet = XLSX.utils.aoa_to_sheet(vehicleSheetData);
-    XLSX.utils.book_append_sheet(workbook, vehicleSheet, '车辆库存');
+    XLSX.utils.book_append_sheet(workbook, vehicleSheet, '各车统计');
 
-    const dailyHeaders = ['日期', '采集量', '入库量'];
+    const dailyHeaders = ['日期', '采集量(人次)', '入库量(人次)'];
     const dailySheetData = [dailyHeaders, ...dailyCollectionData.map(d => [d.date, d.采集量, d.入库量])];
     const dailySheet = XLSX.utils.aoa_to_sheet(dailySheetData);
     XLSX.utils.book_append_sheet(workbook, dailySheet, `${dateRangeLabels[dateRange]}趋势`);
@@ -164,10 +219,44 @@ export default function Statistics() {
     const totalBlood = bloodTypeDistribution.reduce((sum, t) => sum + t.value, 0);
     const bloodTypeSheetData = [
       bloodTypeHeaders,
-      ...bloodTypeDistribution.map(t => [t.name, t.value.toFixed(0), ((t.value / totalBlood) * 100).toFixed(1) + '%'])
+      ...bloodTypeDistribution.map(t => [t.name, t.value, totalBlood > 0 ? ((t.value / totalBlood) * 100).toFixed(1) + '%' : '0%'])
     ];
     const bloodTypeSheet = XLSX.utils.aoa_to_sheet(bloodTypeSheetData);
     XLSX.utils.book_append_sheet(workbook, bloodTypeSheet, '血型分布');
+
+    if (rangeApprovals.length > 0) {
+      const approvalHeaders = ['条码', '献血者', '血型', '采集量(ml)', '当前阶段', '状态', '创建时间'];
+      const stageLabels: Record<string, string> = {
+        initial_screening: '初筛',
+        recheck: '复检',
+        storage: '入库',
+      };
+      const statusLabels: Record<string, string> = {
+        pending: '待处理',
+        processing: '处理中',
+        passed: '已通过',
+        failed: '未通过',
+      };
+      const approvalSheetData = [
+        approvalHeaders,
+        ...rangeApprovals.map(a => {
+          const stageOrder = ['initial_screening', 'recheck', 'storage'];
+          const currentStageIdx = stageOrder.indexOf(a.currentStage);
+          const status = a.stages[currentStageIdx]?.status || 'pending';
+          return [
+            a.barcode,
+            a.donorName,
+            a.bloodType + '型',
+            a.volume,
+            stageLabels[a.currentStage] || a.currentStage,
+            statusLabels[status] || status,
+            a.createTime,
+          ];
+        })
+      ];
+      const approvalSheet = XLSX.utils.aoa_to_sheet(approvalSheetData);
+      XLSX.utils.book_append_sheet(workbook, approvalSheet, '审批记录');
+    }
 
     if (currentUser) {
       addLog(

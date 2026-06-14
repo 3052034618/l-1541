@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BloodApproval, ApprovalStatus, ApprovalStage } from '@/types';
 import { mockApprovals } from '@/data/mockData';
+import { getStoredData, setStoredData } from '@/lib/utils';
 
 interface ApprovalState {
   approvals: BloodApproval[];
@@ -11,12 +12,21 @@ interface ApprovalState {
   updateApprovalStage: (id: string, stage: ApprovalStage, status: ApprovalStatus, operator: string, remark?: string) => void;
   getPendingCount: () => number;
   addApproval: (approval: BloodApproval) => void;
+  getApprovalsByDateRange: (startDate: Date, endDate: Date) => BloodApproval[];
 }
 
 const stageOrder: ApprovalStage[] = ['initial_screening', 'recheck', 'storage'];
 
+const getInitialApprovals = (): BloodApproval[] => {
+  const stored = getStoredData<BloodApproval[]>('approvals', null);
+  if (stored && stored.length > 0) {
+    return stored;
+  }
+  return mockApprovals;
+};
+
 export const useApprovalStore = create<ApprovalState>((set, get) => ({
-  approvals: mockApprovals,
+  approvals: getInitialApprovals(),
 
   getApprovalById: (id: string) => {
     return get().approvals.find(a => a.id === id);
@@ -31,8 +41,8 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
   },
 
   updateApprovalStage: (id: string, stage: ApprovalStage, status: ApprovalStatus, operator: string, remark?: string) => {
-    set(state => ({
-      approvals: state.approvals.map(approval => {
+    set(state => {
+      const newApprovals = state.approvals.map(approval => {
         if (approval.id !== id) return approval;
 
         const stageIndex = stageOrder.indexOf(stage);
@@ -63,8 +73,10 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
           stages: updatedStages,
           currentStage: nextStage,
         };
-      }),
-    }));
+      });
+      setStoredData('approvals', newApprovals);
+      return { approvals: newApprovals };
+    });
   },
 
   getPendingCount: () => {
@@ -75,8 +87,17 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
   },
 
   addApproval: (approval: BloodApproval) => {
-    set(state => ({
-      approvals: [approval, ...state.approvals],
-    }));
+    set(state => {
+      const newApprovals = [approval, ...state.approvals];
+      setStoredData('approvals', newApprovals);
+      return { approvals: newApprovals };
+    });
+  },
+
+  getApprovalsByDateRange: (startDate: Date, endDate: Date) => {
+    return get().approvals.filter(a => {
+      const createDate = new Date(a.createTime);
+      return createDate >= startDate && createDate <= endDate;
+    });
   },
 }));

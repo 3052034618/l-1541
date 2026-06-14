@@ -3,7 +3,7 @@ import { Calendar, Plus, Check, X, Clock, User, Truck, MapPin } from 'lucide-rea
 import { useAppointmentStore } from '@/store/useAppointmentStore';
 import { useLogStore } from '@/store/useLogStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { mockVehicles } from '@/data/mockData';
+import { useVehicleStore } from '@/store/useVehicleStore';
 import type { AppointmentStatus } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +33,7 @@ export default function Appointment() {
   const { appointments, addAppointment, updateAppointmentStatus, findNearestVehicle } = useAppointmentStore();
   const { addLog } = useLogStore();
   const { currentUser } = useAuthStore();
+  const { vehicles } = useVehicleStore();
   const [filter, setFilter] = useState<AppointmentStatus | 'all'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,7 +55,7 @@ export default function Appointment() {
   });
 
   const getVehicleName = (vehicleId: string) => {
-    const vehicle = mockVehicles.find((v) => v.id === vehicleId);
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
     return vehicle?.number || '未知';
   };
 

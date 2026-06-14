@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Appointment, BloodVehicle, Position3D } from '@/types';
-import { mockAppointments, mockVehicles } from '@/data/mockData';
+import { mockAppointments } from '@/data/mockData';
+import { getStoredData, setStoredData } from '@/lib/utils';
+import { useVehicleStore } from './useVehicleStore';
 
 interface AppointmentState {
   appointments: Appointment[];
@@ -22,8 +24,16 @@ const calculateDistance = (pos1: Position3D, pos2: Position3D): number => {
   return Math.sqrt(dx * dx + dz * dz);
 };
 
+const getInitialAppointments = (): Appointment[] => {
+  const stored = getStoredData<Appointment[]>('appointments', null);
+  if (stored && stored.length > 0) {
+    return stored;
+  }
+  return mockAppointments;
+};
+
 export const useAppointmentStore = create<AppointmentState>((set, get) => ({
-  appointments: mockAppointments,
+  appointments: getInitialAppointments(),
 
   getAppointments: () => {
     return get().appointments;
@@ -42,7 +52,8 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
   },
 
   findNearestVehicle: (donorPosition?: Position3D) => {
-    const availableVehicles = mockVehicles.filter(v => 
+    const vehicles = useVehicleStore.getState().vehicles;
+    const availableVehicles = vehicles.filter(v => 
       v.status !== 'maintenance'
     );
 
@@ -74,25 +85,45 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
       status: 'pending',
     };
 
-    set(state => ({
-      appointments: [newAppointment, ...state.appointments],
-    }));
+    set(state => {
+      const newAppointments = [newAppointment, ...state.appointments];
+      setStoredData('appointments', newAppointments);
+      return { appointments: newAppointments };
+    });
+
+    useVehicleStore.getState().incrementReservationCount(appointmentData.vehicleId);
 
     return newAppointment;
   },
 
   updateAppointmentStatus: (id: string, status) => {
-    set(state => ({
-      appointments: state.appointments.map(a =>
+    set(state => {
+      const appointment = state.appointments.find(a => a.id === id);
+      const newAppointments = state.appointments.map(a =>
         a.id === id ? { ...a, status } : a
-      ),
-    }));
+      );
+      setStoredData('appointments', newAppointments);
+      
+      if (appointment && status === 'cancelled') {
+        useVehicleStore.getState().decrementReservationCount(appointment.vehicleId);
+      }
+      
+      return { appointments: newAppointments };
+    });
   },
 
   deleteAppointment: (id: string) => {
-    set(state => ({
-      appointments: state.appointments.filter(a => a.id !== id),
-    }));
+    set(state => {
+      const appointment = state.appointments.find(a => a.id === id);
+      const newAppointments = state.appointments.filter(a => a.id !== id);
+      setStoredData('appointments', newAppointments);
+      
+      if (appointment && appointment.status !== 'completed' && appointment.status !== 'cancelled') {
+        useVehicleStore.getState().decrementReservationCount(appointment.vehicleId);
+      }
+      
+      return { appointments: newAppointments };
+    });
   },
 
   getAppointmentsByDateRange: (startDate: Date, endDate: Date) => {

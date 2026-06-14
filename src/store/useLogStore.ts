@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { OperationLog, UserRole } from '@/types';
+import { getStoredData, setStoredData, clearStoredData } from '@/lib/utils';
 
 interface LogState {
   logs: OperationLog[];
@@ -19,8 +20,10 @@ const getClientIP = () => {
   return '127.0.0.1';
 };
 
+const initialLogs = getStoredData<OperationLog[]>('logs', []);
+
 export const useLogStore = create<LogState>((set, get) => ({
-  logs: [],
+  logs: initialLogs,
 
   addLog: (userId: string, userName: string, action: string, ip?: string) => {
     const newLog: OperationLog = {
@@ -32,9 +35,11 @@ export const useLogStore = create<LogState>((set, get) => ({
       ip: ip || getClientIP(),
     };
 
-    set(state => ({
-      logs: [newLog, ...state.logs],
-    }));
+    set(state => {
+      const newLogs = [newLog, ...state.logs];
+      setStoredData('logs', newLogs);
+      return { logs: newLogs };
+    });
   },
 
   getLogs: () => {
@@ -46,12 +51,12 @@ export const useLogStore = create<LogState>((set, get) => ({
   },
 
   getLogsByRole: (role: UserRole) => {
-    const roleUserIds: Record<UserRole, string[]> = {
-      donor: ['donor001', 'donor002', 'donor003'],
-      nurse: ['u002'],
-      director: ['u001'],
-    };
-    return get().logs.filter(log => roleUserIds[role]?.includes(log.userId));
+    return get().logs.filter(log => {
+      if (role === 'director') return log.userId === 'u001';
+      if (role === 'nurse') return log.userId === 'u002';
+      if (role === 'donor') return log.userId.startsWith('donor') || log.userId === 'u003';
+      return false;
+    });
   },
 
   getLogsByDateRange: (startDate: Date, endDate: Date) => {
@@ -66,6 +71,7 @@ export const useLogStore = create<LogState>((set, get) => ({
   },
 
   clearLogs: () => {
+    clearStoredData('logs');
     set({ logs: [] });
   },
 }));
