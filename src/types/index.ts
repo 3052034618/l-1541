@@ -84,6 +84,8 @@ export interface BloodApproval {
   stages: ApprovalStageItem[];
   createTime: string;
   vehicleId: string;
+  stored?: boolean;
+  rejectReason?: string;
 }
 
 export type UserRole = 'donor' | 'nurse' | 'director';
@@ -103,6 +105,7 @@ export interface Appointment {
   id: string;
   donorId: string;
   donorName: string;
+  phone: string;
   vehicleId: string;
   time: string;
   status: AppointmentStatus;

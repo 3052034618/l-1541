@@ -283,10 +283,10 @@ export const mockUsers: User[] = [
 ];
 
 export const mockAppointments: Appointment[] = [
-  { id: 'appt001', donorId: 'donor001', donorName: '王小明', vehicleId: 'v001', time: '2024-01-16 09:00', status: 'confirmed', bloodType: 'A' },
-  { id: 'appt002', donorId: 'donor002', donorName: '陈美丽', vehicleId: 'v001', time: '2024-01-16 10:00', status: 'pending', bloodType: 'O' },
-  { id: 'appt003', donorId: 'donor006', donorName: '周婷婷', vehicleId: 'v002', time: '2024-01-16 09:30', status: 'confirmed', bloodType: 'B' },
-  { id: 'appt004', donorId: 'donor011', donorName: '冯子健', vehicleId: 'v004', time: '2024-01-16 14:00', status: 'pending', bloodType: 'A' },
+  { id: 'appt001', donorId: 'donor001', donorName: '王小明', phone: '13800000001', vehicleId: 'v001', time: '2024-01-16 09:00', status: 'confirmed', bloodType: 'A' },
+  { id: 'appt002', donorId: 'donor002', donorName: '陈美丽', phone: '13800000002', vehicleId: 'v001', time: '2024-01-16 10:00', status: 'pending', bloodType: 'O' },
+  { id: 'appt003', donorId: 'donor006', donorName: '周婷婷', phone: '13800000003', vehicleId: 'v002', time: '2024-01-16 09:30', status: 'confirmed', bloodType: 'B' },
+  { id: 'appt004', donorId: 'donor011', donorName: '冯子健', phone: '13800000004', vehicleId: 'v004', time: '2024-01-16 14:00', status: 'pending', bloodType: 'A' },
 ];
 
 export const mockDispatchRoutes: DispatchRoute[] = [

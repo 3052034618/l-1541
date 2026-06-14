@@ -38,6 +38,7 @@ export default function Appointment() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
     donorName: '',
+    phone: '',
     bloodType: 'A',
     time: '',
   });
@@ -82,6 +83,10 @@ export default function Appointment() {
       alert('请输入献血者姓名');
       return;
     }
+    if (!formData.phone.trim()) {
+      alert('请输入联系电话');
+      return;
+    }
     if (!formData.time) {
       alert('请选择预约时间');
       return;
@@ -94,6 +99,7 @@ export default function Appointment() {
     const newAppointment = addAppointment({
       donorId: `donor_${Date.now()}`,
       donorName: formData.donorName.trim(),
+      phone: formData.phone.trim(),
       vehicleId: nearestVehicle.id,
       time: new Date(formData.time).toLocaleString('zh-CN', {
         year: 'numeric',
@@ -109,7 +115,7 @@ export default function Appointment() {
       addLog(currentUser.id, currentUser.name, `创建了预约 ${newAppointment.id}，分配至 ${nearestVehicle.number}`);
     }
 
-    setFormData({ donorName: '', bloodType: 'A', time: '' });
+    setFormData({ donorName: '', phone: '', bloodType: 'A', time: '' });
     setShowAddModal(false);
   };
 
@@ -269,6 +275,16 @@ export default function Appointment() {
                 />
               </div>
               <div>
+                <label className="block text-sm text-slate-400 mb-2">联系电话</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-green-500"
+                  placeholder="请输入手机号"
+                />
+              </div>
+              <div>
                 <label className="block text-sm text-slate-400 mb-2">血型</label>
                 <select
                   value={formData.bloodType}
@@ -316,7 +332,7 @@ export default function Appointment() {
               <button
                 onClick={() => {
                   setShowAddModal(false);
-                  setFormData({ donorName: '', bloodType: 'A', time: '' });
+                  setFormData({ donorName: '', phone: '', bloodType: 'A', time: '' });
                 }}
                 className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
               >

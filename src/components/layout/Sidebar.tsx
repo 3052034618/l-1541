@@ -1,4 +1,4 @@
-import { LayoutDashboard, Truck, Calendar, FileCheck, BarChart3, Settings, LogOut, Bell, FileText } from 'lucide-react';
+import { LayoutDashboard, Truck, Calendar, FileCheck, BarChart3, Settings, LogOut, Bell, FileText, QrCode } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useApprovalStore } from '@/store/useApprovalStore';
@@ -8,6 +8,7 @@ const menuItems = [
   { path: '/dashboard', label: '3D大屏', icon: LayoutDashboard },
   { path: '/vehicles', label: '献血车管理', icon: Truck },
   { path: '/appointment', label: '预约管理', icon: Calendar },
+  { path: '/collection', label: '护士采血', icon: QrCode },
   { path: '/approval', label: '审批中心', icon: FileCheck },
   { path: '/statistics', label: '统计报表', icon: BarChart3 },
   { path: '/logs', label: '操作日志', icon: FileText },

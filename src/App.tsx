@@ -3,6 +3,7 @@ import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Vehicles from '@/pages/Vehicles';
 import Appointment from '@/pages/Appointment';
+import NurseCollection from '@/pages/NurseCollection';
 import Approval from '@/pages/Approval';
 import Statistics from '@/pages/Statistics';
 import Logs from '@/pages/Logs';
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="vehicles" element={<Vehicles />} />
           <Route path="appointment" element={<Appointment />} />
+          <Route path="collection" element={<NurseCollection />} />
           <Route path="approval" element={<Approval />} />
           <Route path="statistics" element={<Statistics />} />
           <Route path="logs" element={<Logs />} />

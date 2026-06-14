@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { BloodApproval, ApprovalStatus, ApprovalStage } from '@/types';
 import { mockApprovals } from '@/data/mockData';
 import { getStoredData, setStoredData } from '@/lib/utils';
+import { useVehicleStore } from './useVehicleStore';
 
 interface ApprovalState {
   approvals: BloodApproval[];
@@ -9,7 +10,14 @@ interface ApprovalState {
   getApprovalById: (id: string) => BloodApproval | undefined;
   getApprovalsByStage: (stage: ApprovalStage) => BloodApproval[];
   getApprovalsByVehicle: (vehicleId: string) => BloodApproval[];
-  updateApprovalStage: (id: string, stage: ApprovalStage, status: ApprovalStatus, operator: string, remark?: string) => void;
+  updateApprovalStage: (
+    id: string,
+    stage: ApprovalStage,
+    status: ApprovalStatus,
+    operator: string,
+    remark?: string,
+    rejectReason?: string
+  ) => void;
   getPendingCount: () => number;
   addApproval: (approval: BloodApproval) => void;
   getApprovalsByDateRange: (startDate: Date, endDate: Date) => BloodApproval[];
@@ -40,7 +48,14 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
     return get().approvals.filter(a => a.vehicleId === vehicleId);
   },
 
-  updateApprovalStage: (id: string, stage: ApprovalStage, status: ApprovalStatus, operator: string, remark?: string) => {
+  updateApprovalStage: (
+    id: string,
+    stage: ApprovalStage,
+    status: ApprovalStatus,
+    operator: string,
+    remark?: string,
+    rejectReason?: string
+  ) => {
     set(state => {
       const newApprovals = state.approvals.map(approval => {
         if (approval.id !== id) return approval;
@@ -60,18 +75,42 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
         });
 
         let nextStage = stage;
-        if (status === 'passed' && stageIndex < stageOrder.length - 1) {
-          nextStage = stageOrder[stageIndex + 1];
-          updatedStages[stageIndex + 1] = {
-            ...updatedStages[stageIndex + 1],
-            status: 'processing',
-          };
+        let stored = approval.stored || false;
+        
+        if (status === 'passed') {
+          if (stageIndex < stageOrder.length - 1) {
+            nextStage = stageOrder[stageIndex + 1];
+            updatedStages[stageIndex + 1] = {
+              ...updatedStages[stageIndex + 1],
+              status: 'processing',
+            };
+          } else if (stageIndex === stageOrder.length - 1) {
+            stored = true;
+            const vehicleStore = useVehicleStore.getState();
+            const vehicle = vehicleStore.getVehicleById(approval.vehicleId);
+            if (vehicle) {
+              const updatedInventory = { ...vehicle.inventory };
+              const bloodType = approval.bloodType as keyof typeof updatedInventory;
+              updatedInventory[bloodType] = updatedInventory[bloodType] + approval.volume / 100;
+              vehicleStore.updateVehiclePosition(approval.vehicleId, vehicle.position);
+              const newVehicles = vehicleStore.vehicles.map(v =>
+                v.id === approval.vehicleId ? { ...v, inventory: updatedInventory } : v
+              );
+              useVehicleStore.setState({ vehicles: newVehicles });
+              getStoredData('vehicles', null);
+              try {
+                localStorage.setItem('blood_donation_vehicles', JSON.stringify(newVehicles));
+              } catch {}
+            }
+          }
         }
 
         return {
           ...approval,
           stages: updatedStages,
           currentStage: nextStage,
+          stored,
+          rejectReason: status === 'failed' ? rejectReason : approval.rejectReason,
         };
       });
       setStoredData('approvals', newApprovals);
